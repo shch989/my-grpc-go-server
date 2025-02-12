@@ -3,6 +3,8 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"time"
 
 	"github.com/shch989/my-grpc-proto/protogen/go/hello"
@@ -32,4 +34,28 @@ func (a *GrpcAdapter) SayManyHellos(req *hello.HelloRequest, stream hello.HelloS
 	}
 
 	return nil
+}
+
+func (a *GrpcAdapter) SayHelloToEveryone(stream hello.HelloService_SayHelloToEveryoneServer) error {
+	res := ""
+
+	for {
+		req, err := stream.Recv()
+
+		if err == io.EOF {
+			return stream.SendAndClose(
+				&hello.HelloResponse{
+					Greet: res,
+				},
+			)
+		}
+
+		if err != nil {
+			log.Fatalln("Error while reading from client :", err)
+		}
+
+		greet := a.helloService.GenerateHello(req.Name)
+
+		res += greet + " "
+	}
 }
