@@ -31,10 +31,12 @@ func main() {
 	if err != nil {
 		log.Fatalln("Can't create database adapter :", err)
 	}
-	runDummyOrm(databaseAdapter)
+
+	// runDummyOrm(databaseAdapter)
 
 	hs := &app.HelloService{}
-	bs := &app.BankService{}
+	// bs := &app.BankService{}
+	bs := app.NewBankService(databaseAdapter)
 
 	grpcAdapter := mygrpc.NewGrpcAdapter(hs, bs, 9090)
 

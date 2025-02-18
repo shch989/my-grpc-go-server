@@ -9,3 +9,7 @@ type DummyDatabasePort interface {
 	Save(data *db.DummyOrm) (uuid.UUID, error)
 	GetByUuid(uuid *uuid.UUID) (db.DummyOrm, error)
 }
+
+type BankDatabasePort interface {
+	GetBankAccountByAccountNumber(acct string) (db.BankAccountOrm, error)
+}
