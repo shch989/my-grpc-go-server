@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/shch989/my-grpc-proto/protogen/go/bank"
@@ -20,4 +21,33 @@ func (a *GrpcAdapter) GetCurrentBalance(ctx context.Context, req *bank.CurrentBa
 			Day:   int32(now.Day()),
 		},
 	}, nil
+}
+
+func (a *GrpcAdapter) FetchExchangeRates(req *bank.ExchangeRateRequest,
+	stream bank.BankService_FetchExchangeRatesServer) error {
+	context := stream.Context()
+
+	for {
+		select {
+		case <-context.Done():
+			log.Println("Client cancelled stream")
+			return nil
+		default:
+			now := time.Now().Truncate(time.Second)
+			rate := a.bankService.FindExchangeRate(req.FromCurrency, req.ToCurrency, now)
+
+			stream.Send(
+				&bank.ExchangeRateResponse{
+					FromCurrency: req.FromCurrency,
+					ToCurrency:   req.ToCurrency,
+					Rate:         rate,
+					Timestamp:    now.Format(time.RFC3339),
+				},
+			)
+
+			log.Printf("Exchange rate sent to client, %v to %v\n", req.FromCurrency, req.ToCurrency, rate)
+
+			time.Sleep(3 * time.Second)
+		}
+	}
 }
