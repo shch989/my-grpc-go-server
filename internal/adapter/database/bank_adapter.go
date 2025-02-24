@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	dbank "github.com/shch989/my-grpc-go-server/internal/application/domain/bank"
 )
 
 func (a *DatabaseAdapter) GetBankAccountByAccountNumber(acct string) (BankAccountOrm, error) {
@@ -31,4 +32,36 @@ func (a *DatabaseAdapter) GetExchangeRateAtTimestamp(fromCur string, toCur strin
 	err := a.db.First(&exchangeRateOrm, "from_currency = ? "+"AND to_currency = ?"+" AND (? BETWEEN valid_from_timestamp and valid_to_timestamp)", fromCur, toCur, ts).Error
 
 	return exchangeRateOrm, err
+}
+
+func (a *DatabaseAdapter) CreateTransaction(acct BankAccountOrm, t BankTransactionOrm) (uuid.UUID, error) {
+	tx := a.db.Begin()
+
+	if err := tx.Create(t).Error; err != nil {
+		tx.Rollback()
+		return uuid.Nil, err
+	}
+
+	// recalculate current balance
+	newAmount := t.Amount
+
+	if t.TransactionType == dbank.TransactionTypeOut {
+		newAmount = -1 * t.Amount
+	}
+
+	newAccountBalance := acct.CurrentBalance + newAmount
+
+	if err := tx.Model(&acct).Updates(
+		map[string]interface{}{
+			"current_balance": newAccountBalance,
+			"updated_at":      time.Now(),
+		},
+	).Error; err != nil {
+		tx.Rollback()
+		return uuid.Nil, err
+	}
+
+	tx.Commit()
+
+	return t.TransactionUuid, nil
 }
